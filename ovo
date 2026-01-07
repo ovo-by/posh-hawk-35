@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI API 测试页</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .box {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.1);
+    }
+    input, textarea, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      font-size: 14px;
+    }
+    textarea {
+      min-height: 120px;
+    }
+    button {
+      background: #000;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    pre {
+      background: #111;
+      color: #0f0;
+      padding: 12px;
+      white-space: pre-wrap;
+      margin-top: 12px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h2>AI API 调用测试</h2>
+
+  <input id="apiKey" placeholder="API Key" />
+  <input id="baseUrl" placeholder="API Base URL（例如 https://api.openai.com/v1）" />
+  <input id="model" value="gpt-4o-mini" />
+
+  <textarea id="userInput" placeholder="输入你要问 AI 的内容"></textarea>
+
+  <button onclick="callAI()">发送</button>
+
+  <pre id="result">等待响应…</pre>
+</div>
+
+<script>
+async function callAI() {
+  const key = document.getElementById("apiKey").value.trim();
+  const base = document.getElementById("baseUrl").value.trim();
+  const model = document.getElementById("model").value.trim();
+  const content = document.getElementById("userInput").value;
+
+  const resBox = document.getElementById("result");
+  resBox.textContent = "请求中…";
+
+  try {
+    const res = await fetch(base + "/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + key,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content }]
+      })
+    });
+
+    const data = await res.json();
+    resBox.textContent =
+      data.choices?.[0]?.message?.content || JSON.stringify(data, null, 2);
+
+  } catch (e) {
+    resBox.textContent = "请求失败：" + e.message;
+  }
+}
+</script>
+
+</body>
+</html>
