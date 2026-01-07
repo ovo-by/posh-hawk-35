@@ -1,4 +1,8 @@
-<!DOCTYPE html>
+// routes/index.tsx
+
+export default function Home() {
+  return (
+    <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -242,3 +246,8 @@
 
 </body>
 </html>
+        </div>
+      </body>
+    </>
+  );
+          }
