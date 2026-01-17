@@ -2,191 +2,368 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API 动态模型管理终端</title>
-    <style>
-        :root { --primary: #007aff; --success: #34c759; --bg: #f2f2f7; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
-        .card { background: white; width: 100%; max-width: 500px; padding: 24px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.05); }
-        .h-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 20px; color: #1c1c1e; text-align: center; }
-        .item { margin-bottom: 16px; }
-        label { display: block; font-size: 0.85rem; color: #8e8e93; margin-bottom: 6px; margin-left: 4px; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #d1d1d6; border-radius: 10px; box-sizing: border-box; font-size: 1rem; transition: border 0.2s; }
-        input:focus { border-color: var(--primary); outline: none; }
-        
-        .row { display: flex; gap: 10px; }
-        button { border: none; border-radius: 10px; padding: 12px 18px; font-weight: 600; cursor: pointer; transition: transform 0.1s, opacity 0.2s; }
-        button:active { transform: scale(0.97); }
-        .btn-pull { background: var(--success); color: white; white-space: nowrap; }
-        .btn-test { background: var(--primary); color: white; width: 100%; margin-top: 10px; }
-        .btn-save { background: #3a3a3c; color: white; width: 100%; margin-top: 8px; }
-        
-        #log { margin-top: 20px; padding: 12px; background: #1c1c1e; color: #00ff41; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 0.8rem; min-height: 40px; overflow-wrap: break-word; }
-        .preset-area { margin-top: 25px; border-top: 1px solid #e5e5ea; pt: 15px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Minimalist Phone</title>
+    
+    <!-- 引入图标库 -->
+    <link rel="stylesheet" href="https://cdn.staticfile.org/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="card">
-    <div class="h-title">API 接口调试</div>
-
-    <div class="item">
-        <label>API 基础地址 (Base URL)</label>
-        <input type="text" id="baseUrl" placeholder="例如: https://api.openai.com/v1">
+<div id="app" v-cloak>
+    <!-- === 1. 顶部状态栏 === -->
+    <div class="status-bar">
+        <span class="time">{{ currentTime }}</span>
+        <span><i class="fas fa-signal"></i> 5G</span>
+        <span>{{ batteryLevel }}% <i class="fas fa-battery-three-quarters"></i></span>
     </div>
 
-    <div class="item">
-        <label>API Key</label>
-        <input type="password" id="apiKey" placeholder="sk-...">
-    </div>
-
-    <div class="item">
-        <label>当前可用模型</label>
-        <div class="row">
-            <select id="modelList">
-                <option value="">请先执行拉取...</option>
-            </select>
-            <button class="btn-pull" onclick="fetchRemoteModels()">拉取模型</button>
+    <!-- === 2. 主屏幕 (桌面) === -->
+    <div v-show="!currentApp" class="home-screen-container" 
+         @touchstart="handleTouchStart" 
+         @touchend="handleTouchEnd">
+        
+        <div class="pages-wrapper" :style="{ transform: `translateX(-${activePageIndex * 100}%)` }">
+            <!-- Page 1 -->
+            <div class="page">
+                <div class="widget large-time"><span class="widget-time-text">{{ currentTimeOnly }}</span><span class="widget-date-text">{{ currentDate }}</span></div>
+                <div class="widget weather"><i class="fas fa-cloud" style="font-size:24px; margin-bottom:5px;"></i><span style="font-size:16px; font-weight:bold;">22°</span><span style="font-size:8px;">Beijing</span></div>
+                <div v-for="item in page1Items" :key="item.id" class="grid-item">
+                    <template v-if="item.type === 'app'"><div class="app-icon" @click="openApp(item.id, item.name)"><i :class="item.icon"></i></div><span class="app-name">{{ item.name }}</span></template>
+                    <template v-else><div :class="['custom-widget', item.shape, item.image ? 'filled' : '']" @click="triggerUpload(item)"><img v-if="item.image" :src="item.image"><div v-else-if="item.shape === 'shape-heart'" class="heart-shape"></div><span v-else style="font-size:20px; color:#ddd;">+</span></div></template>
+                </div>
+            </div>
+            <!-- Page 2 -->
+            <div class="page">
+                <div v-for="item in page2Items" :key="item.id" class="grid-item">
+                    <template v-if="item.type === 'app'"><div class="app-icon" @click="openApp(item.id, item.name)"><i :class="item.icon"></i></div><span class="app-name">{{ item.name }}</span></template>
+                    <template v-else><div :class="['custom-widget', item.shape, item.image ? 'filled' : '']" @click="triggerUpload(item)"><img v-if="item.image" :src="item.image"><div v-else-if="item.shape === 'shape-heart'" class="heart-shape"></div><span v-else style="font-size:20px; color:#ddd;">+</span></div></template>
+                </div>
+            </div>
+            <!-- Page 3 -->
+             <div class="page">
+                <div v-for="item in page3Items" :key="item.id" class="grid-item">
+                    <template v-if="item.type === 'app'"><div class="app-icon" @click="openApp(item.id, item.name)"><i :class="item.icon"></i></div><span class="app-name">{{ item.name }}</span></template>
+                    <template v-else><div :class="['custom-widget', item.shape, item.image ? 'filled' : '']" @click="triggerUpload(item)"><img v-if="item.image" :src="item.image"><div v-else-if="item.shape === 'shape-heart'" class="heart-shape"></div><span v-else style="font-size:20px; color:#ddd;">+</span></div></template>
+                </div>
+            </div>
         </div>
     </div>
 
-    <button class="btn-test" onclick="runTest()">进行接口测试 (Hello World)</button>
-    <button class="btn-save" onclick="saveToLocal()">保存此套预设</button>
+    <!-- 桌面分页指示器 & Dock -->
+    <div v-show="!currentApp" class="page-indicator"><div class="dot" :class="{active: activePageIndex === 0}"></div><div class="dot" :class="{active: activePageIndex === 1}"></div><div class="dot" :class="{active: activePageIndex === 2}"></div></div>
+    <div v-show="!currentApp" class="dock-container"><div class="grid-item" v-for="app in dockApps" :key="app.id" @click="openApp(app.id, app.name)"><div class="app-icon" style="background:#000; border:none;"><i :class="app.icon" style="color:#fff;"></i></div></div></div>
 
-    <div id="log">等待指令...</div>
+    <!-- === 3. APP 运行视图 === -->
+    <div v-if="currentApp" class="app-view">
+        
+        <!-- [API APP] -->
+        <template v-if="currentApp === 'api'">
+            <div class="app-header">
+                <div class="back-btn" @click="closeApp"><i class="fas fa-chevron-left"></i> 返回</div><div class="app-title">API 配置</div><div class="header-action"></div>
+            </div>
+            <div class="app-content">
+                <div class="api-container">
+                    <div class="api-card">
+                        <div class="api-group"><div class="api-label">Base URL</div><input class="api-input" type="text" v-model="apiState.url" placeholder="https://api.openai.com/v1" @change="saveApiConfig"></div>
+                        <div class="api-group"><div class="api-label">API Key</div><input class="api-input" type="password" v-model="apiState.key" placeholder="sk-..." @change="saveApiConfig"></div>
+                    </div>
+                    <div class="api-card">
+                        <div class="api-label">Model</div>
+                        <div class="api-row">
+                            <select class="api-select" v-model="apiState.selectedModel" @change="saveApiConfig"><option v-for="m in apiState.models" :value="m.id">{{ m.id }}</option></select>
+                            <button class="api-btn-small" @click="fetchRemoteModels">拉取</button>
+                        </div>
+                    </div>
+                    <div class="api-card">
+                         <div class="api-label">预设管理</div>
+                        <div class="api-row">
+                            <select class="api-select" v-model="apiState.currentPresetName" @change="loadPreset"><option value="">-- 选择预设 --</option><option v-for="(cfg, name) in apiState.presets" :value="name">{{ name }}</option></select>
+                        </div>
+                        <div class="api-row" style="margin-top:10px;"><button class="api-btn-small api-btn-outline" @click="saveNewPreset" style="flex:1;">新增</button><button v-if="apiState.currentPresetName" class="api-btn-small api-btn-outline api-btn-danger" @click="deletePreset" style="flex:1;">删除</button></div>
+                    </div>
+                </div>
+            </div>
+        </template>
 
-    <div class="preset-area">
-        <label>载入历史预设</label>
-        <select id="presets" onchange="loadConfig(this.value)">
-            <option value="">-- 选择已存配置 --</option>
-        </select>
+        <!-- [聊天 APP] -->
+        <template v-else-if="currentApp === 'chat'">
+            
+            <div v-if="chatView === 'list'" class="chat-full-height">
+                
+                <!-- 头部：消息页显示普通标题，朋友圈页隐藏普通标题（使用自定义Header） -->
+                <div v-if="chatTab === 'msg'" class="app-header">
+                    <div class="back-btn" @click="closeApp"><i class="fas fa-chevron-left"></i> 返回</div>
+                    <div class="app-title">消息</div>
+                    <div class="header-action" @click="openCreateChar"><i class="fas fa-plus"></i></div>
+                </div>
+
+                <!-- 内容区域 -->
+                <div class="chat-main-area" @click="closeAllPopups">
+                    
+                    <!-- Tab 1: 消息列表 -->
+                    <div v-if="chatTab === 'msg'">
+                        <div v-if="characters.length === 0" class="empty-state" style="padding-top:100px;"><i class="fas fa-comment-slash"></i><p>无消息</p></div>
+                        <div v-else class="char-list" style="padding:15px;">
+                            <div v-for="char in characters" :key="char.id" class="char-item" @click="enterChat(char.id)">
+                                <div class="char-avatar"><img :src="char.avatar || 'assets/default-avatar.png'" @error="onImgError"></div>
+                                <div class="char-info">
+                                    <div class="char-name-row"><span class="char-name">{{ char.name }}</span><span class="char-group">{{ char.group }}</span></div>
+                                    <div class="char-remark">{{ char.remark || '暂无备注' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: 朋友圈 -->
+                    <div v-if="chatTab === 'moments'">
+                        
+                        <!-- 1. 顶部自定义封面 Header -->
+                        <div class="moment-header-area">
+                            <!-- 背景图 -->
+                            <img class="moment-bg-img" :src="myProfile.bg" @click="triggerBgUpload">
+                            
+                            <!-- 左上角悬浮按钮 -->
+                            <div class="moment-nav-overlay">
+                                <i class="fas fa-bell moment-nav-btn" @click="openHistory"></i> <!-- 历史消息 -->
+                                <i :class="['fas fa-sync-alt moment-nav-btn', isRefreshingMoments ? 'spin-anim' : '']" @click="clickRefreshBtn"></i> <!-- 刷新 (弹窗) -->
+                            </div>
+                            
+                            <!-- 个人信息 -->
+                            <div class="moment-user-profile">
+                                <div class="moment-user-name" @click="editMyName">{{ myProfile.name }}</div>
+                                <div class="moment-user-avatar" @click="triggerMyAvatarUpload">
+                                    <img :src="myProfile.avatar">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. 朋友圈内容列表 -->
+                        <div v-if="momentsList.length === 0" class="empty-state" style="padding-top:50px;">
+                            <i class="fas fa-camera-retro"></i><p>暂无动态</p>
+                        </div>
+                        <div v-else class="moment-feed">
+                            <div v-for="(moment, idx) in momentsList" :key="idx" class="moment-item">
+                                <div class="moment-avatar"><img :src="moment.avatar" @error="onImgError"></div>
+                                <div class="moment-content-box">
+                                    <div class="moment-name">{{ moment.name }}</div>
+                                    <div class="moment-text">{{ moment.content }}</div>
+                                    
+                                    <!-- 媒体显示区 -->
+                                    <div v-if="moment.type === 'image'" class="moment-media">
+                                        <img class="moment-media-img" :src="moment.mediaUrl" @click="previewImage(moment.mediaUrl)">
+                                    </div>
+                                    <div v-else-if="moment.type === 'video'" class="moment-media">
+                                        <video class="moment-media-video" :src="moment.mediaUrl" controls playsinline></video>
+                                    </div>
+                                    <div v-else-if="moment.type === 'file'" class="moment-media-file">
+                                        <i class="fas fa-file-alt file-icon"></i>
+                                        <div class="file-info">
+                                            <span class="file-name">{{ moment.mediaUrl }}</span>
+                                            <span class="file-tag">文件</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="moment-meta-row">
+                                        <div class="moment-time">{{ moment.time }}</div>
+                                        <div class="moment-action-btn" @click.stop="toggleActionMenu(idx)"><i class="fas fa-ellipsis-h" style="font-size: 14px; color: #576b95;"></i></div>
+                                        <div v-if="moment.showMenu" class="action-popup" @click.stop>
+                                            <div class="popup-item" @click="likeMoment(idx)"><i class="far fa-heart"></i> 赞</div>
+                                            <div class="popup-divider"></div>
+                                            <div class="popup-item" @click="openCommentInput(idx, null)"><i class="far fa-comment-dots"></i> 评论</div>
+                                        </div>
+                                    </div>
+                                    <div v-if="(moment.likes && moment.likes.length > 0) || (moment.comments && moment.comments.length > 0)" class="likes-comments-box">
+                                        <div v-if="moment.likes && moment.likes.length > 0" class="like-section"><i class="far fa-heart like-icon"></i><span>{{ moment.likes.join(', ') }}</span></div>
+                                        <div v-if="moment.comments && moment.comments.length > 0" class="comment-section">
+                                            <div v-for="(c, cIdx) in moment.comments" :key="cIdx" class="comment-item" @click.stop="openCommentInput(idx, c.user)">
+                                                <span class="user">{{ c.user }}</span><template v-if="c.replyTo"><span style="color:#333; margin:0 2px;">回复</span><span class="user">{{ c.replyTo }}</span></template><span style="color:#333;">: </span><span class="content">{{ c.text }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 悬浮发布按钮 -->
+                        <div class="float-add-btn" @click="clickAddBtn"><i class="fas fa-plus"></i></div>
+
+                        <!-- 底部固定评论输入框 -->
+                        <div v-if="commentingMomentIndex !== null" class="comment-input-area" @click.stop>
+                            <input ref="commentInput" v-model="commentDraft" :placeholder="commentPlaceholder" @keyup.enter="submitComment">
+                            <div class="comment-send-btn" @click="submitComment">发送</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 历史消息全屏页 -->
+                <div v-if="showHistory" class="history-panel">
+                    <div class="app-header">
+                        <div class="back-btn" @click="showHistory = false"><i class="fas fa-chevron-left"></i> 返回</div>
+                        <div class="app-title">消息列表</div>
+                        <div class="header-action"></div>
+                    </div>
+                    <div class="history-list">
+                         <div v-if="historyLogs.length === 0" class="empty-state">
+                            <i class="fas fa-bell-slash"></i><p>暂无新消息</p>
+                        </div>
+                        <div v-else class="history-item" v-for="(log, idx) in historyLogs" :key="idx">
+                            <div class="history-avatar"><img :src="log.avatar" @error="onImgError"></div>
+                            <div class="history-content">
+                                <div><span class="history-name">{{ log.name }}</span>{{ log.action }}</div>
+                                <div style="color:#999; margin-top:4px;">{{ log.content }}</div>
+                                <div style="color:#ccc; font-size:10px; margin-top:4px;">{{ log.time }}</div>
+                            </div>
+                            <div style="width:40px; height:40px; background:#f0f0f0; display:flex; align-items:center; justify-content:center; color:#999; font-size:10px;">详情</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 刷新选择模态框 -->
+                <div v-if="showRefreshModal" class="modal-overlay" @click="showRefreshModal = false">
+                    <div class="modal-box" @click.stop>
+                        <div class="modal-title">刷新朋友圈</div>
+                        <div class="modal-btn" @click="confirmRefresh('feed')">👀 看看大家发了什么</div>
+                        <div class="modal-btn" @click="confirmRefresh('interaction')">❤️ 看看谁赞了我</div>
+                    </div>
+                </div>
+
+                <!-- 发布类型模态框 -->
+                <div v-if="showPostModal" class="modal-overlay" @click="showPostModal = false">
+                    <div class="modal-box" @click.stop>
+                        <div class="modal-title">发布动态</div>
+                        <div class="grid-menu">
+                            <div class="menu-item" @click="handlePostSelect('text')"><i class="fas fa-font"></i><span>文字</span></div>
+                            <div class="menu-item" @click="handlePostSelect('image')"><i class="fas fa-image"></i><span>照片</span></div>
+                            <div class="menu-item" @click="handlePostSelect('video')"><i class="fas fa-video"></i><span>视频</span></div>
+                            <div class="menu-item" @click="handlePostSelect('file')"><i class="fas fa-file-alt"></i><span>文件</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 底部 Tab 栏 -->
+                <div class="chat-bottom-tabs">
+                    <div :class="['tab-item', chatTab === 'msg' ? 'active' : '']" @click="chatTab = 'msg'"><i class="fas fa-comment"></i><span>消息</span></div>
+                    <div :class="['tab-item', chatTab === 'moments' ? 'active' : '']" @click="chatTab = 'moments'"><i class="fas fa-camera-retro"></i><span>朋友圈</span></div>
+                </div>
+            </div>
+
+            <!-- 创建/编辑视图 (优化版) -->
+            <div v-else-if="chatView === 'create' || chatView === 'edit'" class="chat-full-height">
+                <div class="app-header">
+                    <div class="back-btn" @click="goBackToChatListOrChat"><i class="fas fa-chevron-left"></i> 返回</div>
+                    <div class="app-title">{{ chatView === 'create' ? '创建角色' : '角色设置' }}</div>
+                    <div class="header-action" @click="saveCharacter" style="font-size:12px; font-weight:bold;">保存</div>
+                </div>
+                <div class="app-content">
+                    <!-- 1. 角色设定 -->
+                    <div class="section-title">角色档案</div>
+                    <div class="api-card">
+                        <div class="form-group-center">
+                            <div class="avatar-upload" @click="triggerCharAvatarUpload">
+                                <img v-if="tempCharForm.avatar" :src="tempCharForm.avatar">
+                                <i v-else class="fas fa-camera"></i>
+                            </div>
+                            <div class="api-label" style="text-align:center;">角色头像</div>
+                        </div>
+                        <div class="api-label">名字</div><input class="api-input" v-model="tempCharForm.name" placeholder="角色名称">
+                        <div class="api-label">备注</div><input class="api-input" v-model="tempCharForm.remark" placeholder="简短描述">
+                        <div class="api-label">分组</div><input class="api-input" v-model="tempCharForm.group" placeholder="例如：朋友">
+                        <div class="api-label">人设 (System Prompt)</div>
+                        <textarea class="api-input" rows="5" v-model="tempCharForm.prompt" placeholder="你是一个..."></textarea>
+                    </div>
+
+                    <!-- 2. 用户设定 (针对该角色的身份) -->
+                    <div class="section-title" style="margin-top:20px;">我的设定 (用户)</div>
+                    <div class="api-card">
+                        <div class="form-group-center">
+                             <div class="avatar-upload" @click="triggerMyAvatarUpload">
+                                <img :src="myProfile.avatar">
+                            </div>
+                            <div class="api-label" style="text-align:center;">我的头像</div>
+                        </div>
+                        <div class="api-label">我在TA眼里的身份 (User Persona)</div>
+                        <textarea class="api-input" rows="3" v-model="tempCharForm.userPersona" placeholder="例如：我是你的上司 / 我是你暗恋的人..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天室视图 (Update) -->
+            <div v-else-if="chatView === 'room'" class="chat-room-container">
+                <div class="app-header">
+                    <div class="back-btn" @click="chatView = 'list'"><i class="fas fa-chevron-left"></i> 返回</div><div class="app-title">{{ activeCharName }}</div>
+                    <div class="header-action" @click="editActiveChar"><i class="fas fa-cog"></i></div>
+                </div>
+                <div class="chat-messages" ref="msgContainer" @click="showChatMorePanel = false">
+                    <div v-for="(msg, index) in activeMessages" :key="index" :class="['message-bubble', msg.role === 'user' ? 'user' : 'ai']">
+                        <div v-if="msg.role === 'assistant'" class="bubble-avatar"><img :src="getCharAvatar(activeCharId)" @error="onImgError"></div>
+                        <div class="bubble-content">{{ msg.content }}</div>
+                        <div v-if="msg.role === 'user'" class="bubble-avatar"><img :src="myProfile.avatar" @error="onImgError"></div>
+                    </div>
+                    <div v-if="isAiTyping" class="message-bubble ai"><div class="bubble-avatar"><img :src="getCharAvatar(activeCharId)"></div><div class="bubble-content typing"><span>.</span><span>.</span><span>.</span></div></div>
+                </div>
+                
+                <!-- 底部输入区域 (新布局) -->
+                <div class="chat-footer-area">
+                    <div class="chat-input-bar">
+                        <div :class="['paw-btn', isAiTyping ? 'highlight' : '']" @click="triggerAiReply"><i class="fas fa-paw"></i></div>
+                        <input type="text" v-model="inputMessage" placeholder="说点什么..." @keyup.enter="sendUserMessage" @focus="showChatMorePanel = false">
+                        <!-- 加号按钮 -->
+                        <div class="icon-btn-add" @click="toggleChatMorePanel">
+                            <i :class="showChatMorePanel ? 'fas fa-times-circle' : 'fas fa-plus-circle'"></i>
+                        </div>
+                        <div class="send-btn" @click="sendUserMessage"><i class="fas fa-paper-plane"></i></div>
+                    </div>
+                    
+                    <!-- 更多功能面板 -->
+                    <div v-if="showChatMorePanel" class="chat-more-panel">
+                        <div class="chat-action-grid">
+                            <div class="action-item" @click="handleChatAction('photo')"><div class="action-icon-box"><i class="fas fa-image"></i></div><div class="action-text">相册</div></div>
+                            <div class="action-item" @click="handleChatAction('camera')"><div class="action-icon-box"><i class="fas fa-camera"></i></div><div class="action-text">拍摄</div></div>
+                            <div class="action-item" @click="handleChatAction('video')"><div class="action-icon-box"><i class="fas fa-video"></i></div><div class="action-text">视频通话</div></div>
+                            <div class="action-item" @click="handleChatAction('location')"><div class="action-icon-box"><i class="fas fa-map-marker-alt"></i></div><div class="action-text">位置</div></div>
+                            <div class="action-item" @click="handleChatAction('redpacket')"><div class="action-icon-box"><i class="fas fa-envelope"></i></div><div class="action-text">红包</div></div>
+                            <div class="action-item" @click="handleChatAction('transfer')"><div class="action-icon-box"><i class="fas fa-exchange-alt"></i></div><div class="action-text">转账</div></div>
+                            <div class="action-item" @click="handleChatAction('voice')"><div class="action-icon-box"><i class="fas fa-microphone"></i></div><div class="action-text">语音输入</div></div>
+                            <div class="action-item" @click="handleChatAction('file')"><div class="action-icon-box"><i class="fas fa-folder"></i></div><div class="action-text">文件</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- 其他 APP 占位 -->
+        <template v-else>
+            <div class="app-header"><div class="back-btn" @click="closeApp"><i class="fas fa-chevron-left"></i> 返回</div><div class="app-title">{{ currentAppName }}</div><div class="header-action"></div></div>
+            <div class="app-content empty-state"><i :class="getCurrentAppIcon()" style="font-size:40px; margin-bottom:10px; opacity:0.2;"></i><p>功能建设中...</p></div>
+        </template>
     </div>
+
+    <!-- 隐藏上传控件 -->
+    <input type="file" ref="fileInput" class="hidden-file-input" accept="image/*" @change="handleImageUpload">
+    <input type="file" ref="charFileInput" class="hidden-file-input" accept="image/*" @change="handleCharImageUpload">
+    <input type="file" ref="bgInput" class="hidden-file-input" accept="image/*" @change="handleBgUpload">
+    <input type="file" ref="myAvatarInput" class="hidden-file-input" accept="image/*" @change="handleMyAvatarUpload">
+    <!-- 聊天相册上传 input -->
+    <input type="file" ref="chatImageInput" class="hidden-file-input" accept="image/*" @change="handleChatImageUpload">
+    
+    <!-- 发布动态用的 input -->
+    <input type="file" ref="postImageInput" class="hidden-file-input" accept="image/*" @change="finishPostImage">
+    <input type="file" ref="postVideoInput" class="hidden-file-input" accept="video/*" @change="finishPostVideo">
+
 </div>
 
-<script>
-    const logBox = document.getElementById('log');
-    
-    function print(msg, color) {
-        logBox.innerText = msg;
-        if(color) logBox.style.color = color;
-    }
-
-    // 核心功能：从输入的 API 地址拉取模型列表
-    async function fetchRemoteModels() {
-        let url = document.getElementById('baseUrl').value.trim();
-        const key = document.getElementById('apiKey').value.trim();
-
-        if(!url) return print("错误: 请输入 API 地址", "#ff453a");
-        
-        // 自动修正 URL：确保以 /models 结尾
-        const fetchUrl = url.endsWith('/') ? `${url}models` : `${url}/models`;
-        
-        print("正在连接 API 获取模型列表...");
-        
-        try {
-            const response = await fetch(fetchUrl, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${key}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) throw new Error(`状态码: ${response.status}`);
-
-            const data = await response.json();
-            const select = document.getElementById('modelList');
-            select.innerHTML = ''; // 清空旧的
-
-            // 解析 OpenAI 标准格式的 models 数据
-            if (data.data && Array.isArray(data.data)) {
-                data.data.forEach(m => {
-                    let opt = document.createElement('option');
-                    opt.value = m.id;
-                    opt.innerText = m.id;
-                    select.appendChild(opt);
-                });
-                print(`成功拉取 ${data.data.length} 个模型`, "#32ade6");
-            } else {
-                throw new Error("API 返回格式不规范");
-            }
-        } catch (err) {
-            print("拉取失败: " + err.message, "#ff453a");
-        }
-    }
-
-    // 功能：简单的 Chat 测试
-    async function runTest() {
-        const url = document.getElementById('baseUrl').value.trim();
-        const key = document.getElementById('apiKey').value.trim();
-        const model = document.getElementById('modelList').value;
-
-        if(!model) return print("请先选择一个模型", "#ff453a");
-
-        const chatUrl = url.endsWith('/') ? `${url}chat/completions` : `${url}/chat/completions`;
-        print("正在发送测试请求...");
-
-        try {
-            const res = await fetch(chatUrl, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${key}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: model,
-                    messages: [{role: "user", content: "hi"}],
-                    max_tokens: 10
-                })
-            });
-            const result = await res.json();
-            if(result.choices) {
-                print("测试成功: " + result.choices[0].message.content);
-            } else {
-                print("测试失败: " + JSON.stringify(result), "#ff453a");
-            }
-        } catch (e) {
-            print("连接异常: " + e.message, "#ff453a");
-        }
-    }
-
-    // 预设保存逻辑
-    function saveToLocal() {
-        const name = prompt("给这套配置起个名字:");
-        if(!name) return;
-        const config = {
-            u: document.getElementById('baseUrl').value,
-            k: document.getElementById('apiKey').value
-        };
-        let store = JSON.parse(localStorage.getItem('api_configs') || '{}');
-        store[name] = config;
-        localStorage.setItem('api_configs', JSON.stringify(store));
-        initPresets();
-        print("配置 '" + name + "' 已存至本地");
-    }
-
-    function initPresets() {
-        const store = JSON.parse(localStorage.getItem('api_configs') || '{}');
-        const select = document.getElementById('presets');
-        select.innerHTML = '<option value="">-- 选择已存配置 --</option>';
-        for(let k in store) {
-            let opt = document.createElement('option');
-            opt.value = k;
-            opt.innerText = k;
-            select.appendChild(opt);
-        }
-    }
-
-    function loadConfig(name) {
-        if(!name) return;
-        const store = JSON.parse(localStorage.getItem('api_configs') || '{}');
-        document.getElementById('baseUrl').value = store[name].u;
-        document.getElementById('apiKey').value = store[name].k;
-        print("已载入: " + name);
-    }
-
-    initPresets();
-</script>
+<!-- 引入 Vue 和 脚本 -->
+<script src="https://cdn.staticfile.org/vue/2.6.14/vue.min.js"></script>
+<script src="script.js"></script>
 
 </body>
 </html>
+
+
+
+
